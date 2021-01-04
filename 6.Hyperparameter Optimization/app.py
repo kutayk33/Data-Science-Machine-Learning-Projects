@@ -4,17 +4,15 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 
 st.set_option("deprecation.showPyplotGlobalUse", False)
 
@@ -26,10 +24,9 @@ from sklearn.metrics import (
     recall_score,
 )
 
-
 def main():
     st.title("Hyperparameter Optimization Web App")
-    st.sidebar.title("Algorithm and Hyperparameters Selections")
+    st.sidebar.title("Algoritm and Hyperparameter Selection")
 
     @st.cache(persist=True)
     def load_data():
@@ -75,19 +72,18 @@ def main():
             plot_precision_recall_curve(model, x_test, y_test)
             st.pyplot()
 
-        if "Scatter Plot" in metrics_list:
-            st.subheader("Visualisation of Actual and Predicted Values")
+    def plot_graph(graph_list):
+
+        if "Scatter Plot" in graph_list:
+            st.subheader("Scatter Plot of Actual and Predicted Values")
             plt.scatter(y_test, y_pred)
             plt.xlabel("Y Test")
-            plt.ylabel("Predicted Y")
+            plt.ylabel("Y Predicted")
             st.pyplot()
 
-        if "Line Plot" in metrics_list:
-            st.subheader("Visualisation of Actual and Predicted Values")
-            plt.plot(y_test, label="Test")
-            plt.plot(y_pred.reshape(-1, 1), label="Predict")
-            # plt.xlabel('Y Test')
-            # plt.ylabel('Predicted Y')
+        if "Residual Histogram" in graph_list:
+            st.subheader("Residual Histogram of Actual and Predicted Values")
+            sns.distplot((y_test - y_pred), bins=10)
             st.pyplot()
 
     st.sidebar.subheader("Classifiction or Regression")
@@ -103,12 +99,91 @@ def main():
         regression = st.sidebar.selectbox(
             "",
             (
-                "Linear Regression",
-                "Support Vektor",
+                "Multiple Linear Regression",
                 "Decision Tree",
-                "Random Forest",
+                "Random Forest Regressor",
             ),
         )
+
+        if regression == "Random Forest Regressor":
+            st.sidebar.subheader("Model Hyperparameters")
+            n_estimators = st.sidebar.number_input(
+                "The number of trees(Default=100)", 10, 500, step=10, key="n_estimators"
+            )
+            max_features = st.sidebar.radio(
+                "The number of features(default=auto)",
+                ("auto", "sqrt", "log2"),
+                key="max_features",
+            )
+
+            min_samples_leaf = st.sidebar.number_input(
+                "The minimum number of samples(default=1)",
+                1,
+                100,
+                step=1,
+                key="min_samples_leaf",
+            )
+
+            graph_list = st.sidebar.multiselect(
+                "Visualization",
+                ("Residual Histogram", "Scatter Plot"),
+            )
+
+            if st.sidebar.button("Run", key="run"):
+                st.subheader("Random Forest Regressor Results")
+                model = RandomForestRegressor(
+                    min_samples_leaf=min_samples_leaf,
+                    n_estimators=n_estimators,
+                    max_features=max_features,
+                )
+                model.fit(x_train, y_train)
+                y_pred = model.predict(x_test)
+                st.write("MAE : ", mean_absolute_error(y_test, y_pred).round(2))
+                st.write(
+                    "RMSE : ",
+                    np.sqrt(mean_squared_error(y_test, y_pred)).round(2),
+                )
+                st.write(
+                    "R2_Score : ",
+                    r2_score(y_test, y_pred).round(2),
+                )
+                plot_graph(graph_list)
+
+        if regression == "Multiple Linear Regression":
+            st.sidebar.subheader("Model Hyperparameters")
+            fit_intercept = st.sidebar.radio(
+                "Calculate intercept(default=True)",
+                ("True", "False"),
+                key="fit_intercept",
+            )
+            normalize = st.sidebar.radio(
+                "L2 Normalization(default=Flase)",
+                ("True", "False"),
+                key="normalize",
+            )
+
+            graph_list = st.sidebar.multiselect(
+                "Visualization",
+                ("Residual Histogram", "Scatter Plot"),
+            )
+
+            if st.sidebar.button("Run", key="run"):
+                st.subheader("Multiple Linear Regression Results")
+                model = LinearRegression(
+                    fit_intercept=fit_intercept, normalize=normalize
+                )
+                model.fit(x_train, y_train)
+                y_pred = model.predict(x_test)
+                st.write("MAE : ", mean_absolute_error(y_test, y_pred).round(2))
+                st.write(
+                    "RMSE : ",
+                    np.sqrt(mean_squared_error(y_test, y_pred)).round(2),
+                )
+                st.write(
+                    "R2_Score : ",
+                    r2_score(y_test, y_pred).round(2),
+                )
+                plot_graph(graph_list)
 
         if regression == "Decision Tree":
             st.sidebar.subheader("Model Hyperparameters")
@@ -121,9 +196,9 @@ def main():
                 key="criterion",
             )
 
-            metrics = st.sidebar.multiselect(
+            graph_list = st.sidebar.multiselect(
                 "Visualization",
-                ("Line Plot", "Scatter Plot"),
+                ("Residual Histogram", "Scatter Plot"),
             )
 
             if st.sidebar.button("Run", key="run"):
@@ -140,7 +215,7 @@ def main():
                     "R2_Score : ",
                     r2_score(y_test, y_pred).round(2),
                 )
-                plot_metrics(metrics)
+                plot_graph(graph_list)
 
         if st.sidebar.checkbox("Show Raw Data", False):
             st.subheader("Power Plant Data Set")
